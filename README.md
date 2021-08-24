@@ -1,19 +1,18 @@
 #########################################################
+
+# HS CD8+ Atlas Building 
+
 #########################################################
 
-HS CD8+ Atlas Building 
 
-#########################################################
-#########################################################
-
-
-
+/
+/
 A readme for constructing a Human Atlas of CD8+ cells.
-
-
+/
+/
 
 #########################################################
-# Legal Information                                     #
+## Legal Information                                     
 #########################################################
 
 LICENSE: GNU GPL v3 for scripts.
@@ -30,7 +29,7 @@ for detailed information.
 
 
 #########################################################
-# Requirements                                          #
+## Requirements                                          
 #########################################################
 
   COMING SOON
@@ -46,30 +45,29 @@ You need R 4.0.3 with following packages:
 You also need tape archiver (tar) for extracting 10X files.
 
 #########################################################
-# Building a set                                        #
+## Building a set                                        
 #########################################################
 
 You need to follow these steps:
 
-1. ) Go to page xxxx on our GitHub and clone following directory:
+1. ) Go to page xxxx on our GitHub and clone following directory:\
  COMING SOON!
  
-2. ) Go to downloaded directory:
+2. ) Go to downloaded directory:\
   cd xxxx
 
-3. ) Run bash script  Create_hierarchy_for_analysis.sh:
-  bash Create_hierarchy_for_analysis.sh
-  
+3. ) Run bash script  Create_hierarchy_for_analysis.sh:\
+  bash Create_hierarchy_for_analysis.sh\ 
   This should download all necessary directories and extract them.
   All VDJ files will be also downloaded.
   
 4. ) On Rstudio or just in terminal, run following files:
 
-  - CD8_HS_Atlas_small_datasets.Rmd
-  - CD8_HS_Atlas_Donor_1.Rmd
-  - CD8_HS_Atlas_Donor_2.Rmd
-  - CD8_HS_Atlas_Donor_3.Rmd
-  - CD8_HS_Atlas_Donor_4.Rmd
+    - CD8_HS_Atlas_small_datasets.Rmd
+    - CD8_HS_Atlas_Donor_1.Rmd
+    - CD8_HS_Atlas_Donor_2.Rmd
+    - CD8_HS_Atlas_Donor_3.Rmd
+    - CD8_HS_Atlas_Donor_4.Rmd
   
   In Rstudio, for each file use option knit or jsut run all chunks.
   For command line, open R and use:
@@ -90,7 +88,7 @@ the latter does not have them. These are two data sets used in our paper.
 
 
 #########################################################
-# List of employed data sets and where to get them      #
+## List of employed data sets and where to get them      
 #########################################################
 
 This is just a list of used data sets. You can and should use script 'Create_hierarchy_for_analysis.sh' to download them automatically.
@@ -101,39 +99,39 @@ for more informations.
 
 Single Cell Gene Expression:
 
-* 3' - 1: 	https://support.10xgenomics.com/single-cell-gene-expression/datasets/6.0.0/10k_PBMCs_TotalSeq_B_3p
+* 3' - 1: 	https://support.10xgenomics.com/single-cell-gene-expression/datasets/6.0.0/10k_PBMCs_TotalSeq_B_3p\
 			https://cf.10xgenomics.com/samples/cell-exp/6.0.0/10k_PBMCs_TotalSeq_B_3p/10k_PBMCs_TotalSeq_B_3p_raw_feature_bc_matrix.tar.gz
-* 3' - 2:		https://support.10xgenomics.com/single-cell-gene-expression/datasets/6.0.0/SC3_v3_NextGem_DI_CellPlex_Human_PBMC_10K_Multiplex
+* 3' - 2:		https://support.10xgenomics.com/single-cell-gene-expression/datasets/6.0.0/SC3_v3_NextGem_DI_CellPlex_Human_PBMC_10K_Multiplex\
 			https://cf.10xgenomics.com/samples/cell-exp/6.0.0/SC3_v3_NextGem_DI_CellPlex_Human_PBMC_10K_Multiplex/SC3_v3_NextGem_DI_CellPlex_Human_PBMC_10K_Multiplex_count_raw_feature_bc_matrix.tar.gz
-* 3' - 3:		https://support.10xgenomics.com/single-cell-gene-expression/datasets/3.0.2/5k_pbmc_v3
+* 3' - 3:		https://support.10xgenomics.com/single-cell-gene-expression/datasets/3.0.2/5k_pbmc_v3\
 			https://cf.10xgenomics.com/samples/cell-exp/3.0.2/5k_pbmc_v3/5k_pbmc_v3_raw_feature_bc_matrix.tar.gz
-* 3' - 4:		https://support.10xgenomics.com/single-cell-gene-expression/datasets/3.0.0/pbmc_10k_protein_v3
+* 3' - 4:		https://support.10xgenomics.com/single-cell-gene-expression/datasets/3.0.0/pbmc_10k_protein_v3\
 			https://cf.10xgenomics.com/samples/cell-exp/3.0.0/pbmc_10k_protein_v3/pbmc_10k_protein_v3_raw_feature_bc_matrix.tar.gz
-* 3' - 5:		https://support.10xgenomics.com/single-cell-gene-expression/datasets/2.1.0/pbmc8k
+* 3' - 5:		https://support.10xgenomics.com/single-cell-gene-expression/datasets/2.1.0/pbmc8k\
 			https://cf.10xgenomics.com/samples/cell-exp/2.1.0/pbmc8k/pbmc8k_raw_gene_bc_matrices.tar.gz
 
 Single Cell Immune Profiling:
 
-* 5' - 1:		https://support.10xgenomics.com/single-cell-vdj/datasets/3.1.0/vdj_v1_hs_pbmc3
+* 5' - 1:		https://support.10xgenomics.com/single-cell-vdj/datasets/3.1.0/vdj_v1_hs_pbmc3\
 			https://cf.10xgenomics.com/samples/cell-vdj/3.1.0/vdj_v1_hs_pbmc3/vdj_v1_hs_pbmc3_raw_feature_bc_matrix.tar.gz
-* 5' - 2:		https://support.10xgenomics.com/single-cell-vdj/datasets/5.0.0/sc5p_v2_hs_T_1k_multi_5gex_t
+* 5' - 2:		https://support.10xgenomics.com/single-cell-vdj/datasets/5.0.0/sc5p_v2_hs_T_1k_multi_5gex_t\
 			https://cf.10xgenomics.com/samples/cell-vdj/5.0.0/sc5p_v2_hs_T_1k_multi_5gex_t/sc5p_v2_hs_T_1k_multi_5gex_t_count_raw_feature_bc_matrix.tar.gz
-* 5' - 3:		https://support.10xgenomics.com/single-cell-vdj/datasets/5.0.0/sc5p_v2_hs_PBMC_10k_multi_5gex_5fb_b_t
+* 5' - 3:		https://support.10xgenomics.com/single-cell-vdj/datasets/5.0.0/sc5p_v2_hs_PBMC_10k_multi_5gex_5fb_b_t\
 			https://cf.10xgenomics.com/samples/cell-vdj/5.0.0/sc5p_v2_hs_PBMC_10k_multi_5gex_5fb_b_t/sc5p_v2_hs_PBMC_10k_multi_5gex_5fb_b_t_count_raw_feature_bc_matrix.tar.gz			
-* 5' - 4:		https://support.10xgenomics.com/single-cell-vdj/datasets/4.0.0/sc5p_v2_hs_PBMC_1k
+* 5' - 4:		https://support.10xgenomics.com/single-cell-vdj/datasets/4.0.0/sc5p_v2_hs_PBMC_1k\
 			https://cf.10xgenomics.com/samples/cell-vdj/4.0.0/sc5p_v2_hs_PBMC_1k/sc5p_v2_hs_PBMC_1k_raw_feature_bc_matrix.tar.gz
-* 5' - 5:		https://support.10xgenomics.com/single-cell-vdj/datasets/3.0.0/vdj_v1_hs_pbmc2_5gex_protein
+* 5' - 5:		https://support.10xgenomics.com/single-cell-vdj/datasets/3.0.0/vdj_v1_hs_pbmc2_5gex_protein\
 			https://cf.10xgenomics.com/samples/cell-vdj/3.0.0/vdj_v1_hs_pbmc2_5gex_protein/vdj_v1_hs_pbmc2_5gex_protein_raw_feature_bc_matrix.tar.gz
 
 Donors:
 
-* Donor 1:	https://support.10xgenomics.com/single-cell-vdj/datasets/3.0.2/vdj_v1_hs_aggregated_donor1
+* Donor 1:	https://support.10xgenomics.com/single-cell-vdj/datasets/3.0.2/vdj_v1_hs_aggregated_donor1\
 			https://cf.10xgenomics.com/samples/cell-vdj/3.0.2/vdj_v1_hs_aggregated_donor1/vdj_v1_hs_aggregated_donor1_filtered_feature_bc_matrix.tar.gz
-* Donor 2:	https://support.10xgenomics.com/single-cell-vdj/datasets/3.0.2/vdj_v1_hs_aggregated_donor2
+* Donor 2:	https://support.10xgenomics.com/single-cell-vdj/datasets/3.0.2/vdj_v1_hs_aggregated_donor2\
 			https://cf.10xgenomics.com/samples/cell-vdj/3.0.2/vdj_v1_hs_aggregated_donor2/vdj_v1_hs_aggregated_donor2_filtered_feature_bc_matrix.tar.gz
-* Donor 3:	https://support.10xgenomics.com/single-cell-vdj/datasets/3.0.2/vdj_v1_hs_aggregated_donor3
+* Donor 3:	https://support.10xgenomics.com/single-cell-vdj/datasets/3.0.2/vdj_v1_hs_aggregated_donor3\
 			https://cf.10xgenomics.com/samples/cell-vdj/3.0.2/vdj_v1_hs_aggregated_donor3/vdj_v1_hs_aggregated_donor3_filtered_feature_bc_matrix.tar.gz
-* Donor 4:	https://support.10xgenomics.com/single-cell-vdj/datasets/3.0.2/vdj_v1_hs_aggregated_donor4
+* Donor 4:	https://support.10xgenomics.com/single-cell-vdj/datasets/3.0.2/vdj_v1_hs_aggregated_donor4\
 			https://cf.10xgenomics.com/samples/cell-vdj/3.0.2/vdj_v1_hs_aggregated_donor4/vdj_v1_hs_aggregated_donor4_filtered_feature_bc_matrix.tar.gz
 
 VDJ - 5':
@@ -155,7 +153,7 @@ VDJ - Donors:
 
 
 #########################################################
-# MISCELLANEOUS                                         #
+## MISCELLANEOUS                                         
 #########################################################
 
 Author: Juraj Michalik
