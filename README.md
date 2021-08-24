@@ -50,16 +50,18 @@ You also need tape archiver (tar) for extracting 10X files.
 
 You need to follow these steps:
 
-1. ) Go to page xxxx on our GitHub and clone following directory:\
+1. ) Go to page xxxx on our GitHub and clone following directory:  
  COMING SOON!
  
-2. ) Go to downloaded directory:\
+2. ) Go to downloaded directory:  
   cd xxxx
 
-3. ) Run bash script  Create_hierarchy_for_analysis.sh:\
-  bash Create_hierarchy_for_analysis.sh   
-  This should download all necessary directories and extract them.  
-  All VDJ files will be also downloaded.  
+3. ) Run bash script  Create_hierarchy_for_analysis.sh:  
+    
+    bash Create_hierarchy_for_analysis.sh   
+    
+    This should download all necessary directories and extract them.  
+    All VDJ files will be also downloaded.  
   
 4. ) On Rstudio or just in terminal, run following files:
 
@@ -69,13 +71,13 @@ You need to follow these steps:
     - CD8_HS_Atlas_Donor_3.Rmd
     - CD8_HS_Atlas_Donor_4.Rmd
   
-  In Rstudio, for each file use option knit or jsut run all chunks.
-  For command line, open R and use:
+    In Rstudio, for each file use option knit or jsut run all chunks.
+    For command line, open R and use:
   
-  rmarkdown::render("file.Rmd", "output.html")
+    rmarkdown::render("file.Rmd", "output.html")
   
-  where 'file.Rmd' is one of above files and 'output.html' is the name of knitted output file.
-  You can name the output however you want, the file is purely informative.
+    where 'file.Rmd' is one of above files and 'output.html' is the name of knitted output file.
+    You can name the output however you want, the file is purely informative.
   
 5. ) Knit 'Donor_10X_Integration_2500_no_RBS.Rmd' in Rstudio (alternatively,
     run rmarkdown::render("Donor_10X_Integration_2500_no_RBS.Rmd", "Donor_10X_Integration_2500_no_RBS.html")) 
@@ -156,8 +158,8 @@ VDJ - Donors:
 ## MISCELLANEOUS                                         
 #########################################################
 
-Author: Juraj Michalik
-Date: 08/14/2021
-e-mail: juraj.michalik@img.cas.cz
+Author: Juraj Michalik  
+Date: 2021-08-24  
+e-mail: juraj.michalik@img.cas.cz  
 
 In case of any questions, feel free to use above e-mail adress.
