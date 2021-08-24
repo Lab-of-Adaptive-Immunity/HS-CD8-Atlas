@@ -21,7 +21,7 @@
 
 mkdir Initial_Data
 mkdir General
-mkdir Donors_Dataset
+mkdir Donors_Datasets
 
 # download all the files into donor data-sets
 # these should be stored in Initial_Data directory
