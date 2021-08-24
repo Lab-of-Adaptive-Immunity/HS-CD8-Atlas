@@ -1,0 +1,137 @@
+---
+title: "CD8+ HS Dataset analysis and Integration"
+author: "Veronika Niederlova and Juraj Michalik"
+date: "4/26/2021"
+output: rmdformats::material
+---
+
+# Initialization 
+
+Analysis of BIG! data-sets made available by 10X. This one includes only Donor 2.
+
+First we load all necessary packages here.
+
+```{r libs, include=FALSE}
+knitr::opts_chunk$set(include = TRUE, warning = FALSE, message = FALSE, 
+                      error = TRUE, cache = TRUE, cache.lazy = FALSE)
+library(Seurat, lib.loc = '/usr/lib64/R/library')
+library(future)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(cowplot)
+library(gridExtra)
+library(dbscan)
+library(scatterpie)
+library(reshape2)
+library(ggrepel)
+library(scds)
+library(SingleCellExperiment)
+
+# negation of %in% 
+`%nin%` = Negate(`%in%`)
+```
+
+## R Markdown
+
+```{r, message = F}
+donor2tab <- Read10X('Initial_Data/Donor2/filtered_feature_bc_matrix/')
+donor2tab$`Gene Expression` <- donor2tab$`Gene Expression`[!grepl('^TR(A|B)(V|D|J)', rownames(donor2tab$`Gene Expression`)),] 
+```
+
+We create Seurat object with Antibody assay. We also remove raw count matrices as we no longer need them and here the space might be an issue.
+
+```{r}
+# create seurat object
+donor2 <- CreateSeuratObject(donor2tab$`Gene Expression`, 'Donor2_HS_CD8',  min.cells = 3, min.features = 200)
+ab_assay <- donor2tab$`Antibody Capture`[,colnames(donor2tab$`Antibody Capture`) %in% 
+                                          colnames(donor2)]
+ab_assay <- CreateAssayObject(counts = ab_assay)
+donor2[['Antibodies']] <- ab_assay
+remove(donor2tab, ab_assay)
+```
+
+Perform QC.
+
+```{r}
+donor2[["percent.mt"]] <- PercentageFeatureSet(object = donor2, pattern = "^MT-")
+donor2[["percent.rp"]] <- PercentageFeatureSet(object = donor2, pattern = "^RP[S|L]")
+print(VlnPlot(donor2, features = c("nFeature_RNA", "nCount_RNA", "percent.mt", "percent.rp"), ncol = 4, pt.size = 0))
+```
+
+Filter out low QC cells and VDJ doublets. Here it looks better to keep cells even with high read counts because they may not be doublets but some cells with high transcription activity. We follow by adding VDJ data.
+
+```{r}
+vdj.data <- load.10X.VDJ('Initial_Data/vdj_v1_hs_aggregated_donor2_all_contig_annotations.csv')
+
+donor2 <- subset(donor2, subset = nFeature_RNA > 200)
+vdj.doublets <- trace.VDJ.duplicates(donor2, vdj.data)
+donor2 <- subset(donor2, cells = colnames(donor2)[!(colnames(donor2) %in% vdj.doublets)])
+donor2 <- create.VDJ.metadata(donor2, vdj.data, filter.vdj = T, generate.clonotypes = F)
+```
+
+# First Analysis
+
+Now we continue with the analysis.
+
+```{r, results = F, include = F}
+donor2 <- NormalizeData(object = donor2)
+donor2 <- FindVariableFeatures(donor2, selection.method = "vst", nfeatures = 1000, 
+                                          verbose = FALSE)
+  
+donor2 <- ScaleData(donor2, verbose = FALSE)
+donor2 <- RunPCA(donor2, npcs = 20, verbose = FALSE)
+donor2 <- RunUMAP(donor2, reduction = "pca", dims = 1:20)
+  
+donor2 <- FindNeighbors(donor2, dims = 1:20)
+donor2 <- FindClusters(donor2, resolution = 0.5)
+```
+
+```{r}
+print(DimPlot(donor2, reduction = "umap", group.by = "seurat_clusters", label = TRUE))
+print(VlnPlot(donor2, features = c("nFeature_RNA", "nCount_RNA", "percent.mt", "percent.rp"), ncol = 2, pt.size = 0))
+```
+
+```{r, fig.width = 10, fig.height = 15}
+print(FeaturePlot(donor2, c('CD8A', 'CD8B', 'CCR7', 'CD62', 'CD28', 'CD27', 'CD44'), min.cutoff = 0))
+print(FeaturePlot(donor2, c('CXCR3', 'CX3CR1', 'TBX21', 'KLRB1', 'IL2RB', 'IL7R'), min.cutoff = 0))
+```
+
+# Filtering and subsequent analysis
+
+Clusters 1, 5 and 11 are clusters with plenty of mitochondrial genes and low gene count - we'll remove them. Clusters 13, 14 and 15 have not CD8 cells so we remove them as well. We also remove all cells with more than 10% mitochondrial genes in this step.
+
+```{r, results = F, include = F}
+donor2 <- subset(donor2, subset =  percent.mt < 10 & seurat_clusters %nin% c(1,5,11,13,14,15))
+
+donor2 <- NormalizeData(object = donor2)
+donor2 <- FindVariableFeatures(donor2, selection.method = "vst", nfeatures = 1000, 
+                                          verbose = FALSE)
+  
+donor2 <- ScaleData(donor2, verbose = FALSE)
+donor2 <- RunPCA(donor2, npcs = 20, verbose = FALSE)
+donor2 <- RunUMAP(donor2, reduction = "pca", dims = 1:20)
+  
+donor2 <- FindNeighbors(donor2, dims = 1:20)
+donor2 <- FindClusters(donor2, resolution = 0.5)
+```
+
+And repeat the visualization.
+
+```{r}
+print(DimPlot(donor2, reduction = "umap", group.by = "seurat_clusters", label = TRUE))
+print(VlnPlot(donor2, features = c("nFeature_RNA", "nCount_RNA", "percent.mt", "percent.rp"), ncol = 2, pt.size = 0))
+```
+
+```{r, fig.width = 10, fig.height = 15}
+print(FeaturePlot(donor2, c('CD8A', 'CD8B', 'CCR7', 'CD62', 'CD28', 'CD27', 'CD44'), min.cutoff = 0))
+print(FeaturePlot(donor2, c('CXCR3', 'CX3CR1', 'TBX21', 'KLRB1', 'IL2RB', 'IL7R'), min.cutoff = 0))
+```
+
+# Saving data
+
+Looks okay. Saving the data.
+
+```{r, fig.width = 10, fig.height = 15}
+saveRDS(donor2, paste0('Donors_Datasets/Donor_2_VDJ.rds'))
+```

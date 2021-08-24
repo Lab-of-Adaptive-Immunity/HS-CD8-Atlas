@@ -1,0 +1,428 @@
+---
+title: "CD8 Human Atlas"
+author: "Juraj Michalik"
+date: "4/19/2021"
+output: rmdformats::material
+---
+
+# Initialization 
+
+First we load all necessary packages here.
+
+```{r libs, include=FALSE}
+knitr::opts_chunk$set(include = TRUE, warning = FALSE, message = FALSE, 
+                      error = TRUE, cache = TRUE, cache.lazy = FALSE)
+library(Seurat, lib.loc = '/usr/lib64/R/library')
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(cowplot)
+library(gridExtra)
+library(dbscan)
+library(scatterpie)
+library(reshape2)
+library(ggrepel)
+library(here)
+source('VDJ_utilities.R')
+```
+
+We load all data-sets we want:
+
+```{r, message = F}
+set1.3pe <- Read10X('Initial_Data/10k_PBMCs_TotalSeq_B_3p_raw_feature_bc_matrix/raw_feature_bc_matrix/')
+set2.3pe <- Read10X('Initial_Data/SC3_v3_NextGem_DI_CellPlex_Human_PBMC_10K_Multiplex_count_raw_feature_bc_matrix/raw_feature_bc_matrix/')
+set3.3pe <- Read10X('Initial_Data/5k_pbmc_v3_raw_feature_bc_matrix/raw_feature_bc_matrix/')
+set4.3pe <- Read10X('Initial_Data/pbmc_10k_protein_v3_raw_feature_bc_matrix/raw_feature_bc_matrix/')
+set5.3pe <- Read10X('Initial_Data/pbmc8k_raw_gene_bc_matrices/raw_gene_bc_matrices/GRCh38/')
+
+set1.5pe <- Read10X('Initial_Data/vdj_v1_hs_pbmc3_raw_feature_bc_matrix/raw_feature_bc_matrix/')
+set2.5pe <- Read10X('Initial_Data/sc5p_v2_hs_T_1k_multi_5gex_t_count_raw_feature_bc_matrix/raw_feature_bc_matrix/')
+set3.5pe <- Read10X('Initial_Data/sc5p_v2_hs_PBMC_10k_multi_5gex_5fb_b_t_count_raw_feature_bc_matrix/raw_feature_bc_matrix/')
+set4.5pe <- Read10X('Initial_Data/sc5p_v2_hs_PBMC_1k_raw_feature_bc_matrix/raw_feature_bc_matrix/') 
+set5.5pe <- Read10X('Initial_Data/vdj_v1_hs_pbmc2_5gex_protein_raw_feature_bc_matrix/raw_feature_bc_matrix/')
+```
+
+Remove TRAV/TRBV/TRAJ/TRBJ/TRDJ genes.
+
+```{r, message = F}
+set1.3pe$`Gene Expression` <- set1.3pe$`Gene Expression`[!grepl('^TR(A|B)(V|D|J)', rownames(set1.3pe$`Gene Expression`)),] 
+set2.3pe$`Gene Expression` <- set2.3pe$`Gene Expression`[!grepl('^TR(A|B)(V|D|J)', rownames(set2.3pe$`Gene Expression`)),] 
+set3.3pe <- set3.3pe[!grepl('^TR(A|B)(V|D|J)', rownames(set3.3pe)),] 
+set4.3pe$`Gene Expression` <- set4.3pe$`Gene Expression`[!grepl('^TR(A|B)(V|D|J)', rownames(set4.3pe$`Gene Expression`)),]
+set5.3pe <- set5.3pe[!grepl('^TR(A|B)(V|D|J)', rownames(set5.3pe)),] 
+
+set1.5pe$`Gene Expression` <- set1.5pe$`Gene Expression`[!grepl('^TR(A|B)(V|D|J)', rownames(set1.5pe$`Gene Expression`)),] 
+set2.5pe <- set2.5pe[!grepl('^TR(A|B)(V|D|J)', rownames(set2.5pe)),] 
+set3.5pe$`Gene Expression` <- set3.5pe$`Gene Expression`[!grepl('^TR(A|B)(V|D|J)', rownames(set3.5pe$`Gene Expression`)),] 
+set4.5pe$`Gene Expression` <- set4.5pe$`Gene Expression`[!grepl('^TR(A|B)(V|D|J)', rownames(set4.5pe$`Gene Expression`)),] 
+set5.5pe$`Gene Expression` <- set5.5pe$`Gene Expression`[!grepl('^TR(A|B)(V|D|J)', rownames(set5.5pe$`Gene Expression`)),] 
+```
+
+For 5' data, we also have VDJ data available. We load the files too.
+
+```{r}
+# create seurat object
+se1_3pe <- CreateSeuratObject(set1.3pe$`Gene Expression`, 'Healthy_Donor_3pe_PBMC_10k',  min.cells = 3, min.features = 200)
+se2_3pe <- CreateSeuratObject(set2.3pe$`Gene Expression`, 'Healthy_Donor2_3pe_PBMC_10k_2S',  min.cells = 3, min.features = 200)
+se3_3pe <- CreateSeuratObject(set3.3pe, 'Healthy_Donor3_3pe_PBMC_5k',  min.cells = 3, min.features = 200)
+se4_3pe <- CreateSeuratObject(set4.3pe$`Gene Expression`, 'Healthy_Donor4_3pe_PBMC_10k_2S',  min.cells = 3, min.features = 200)
+se5_3pe <- CreateSeuratObject(set5.3pe, 'Healthy_Donor5_3pe_PBMC_8k',  min.cells = 3, min.features = 200)
+
+se1_5pe <- CreateSeuratObject(set1.5pe$`Gene Expression`, 'Healthy_Donor_5pe_PBMC_10k',  min.cells = 3, min.features = 200)
+se2_5pe <- CreateSeuratObject(set2.5pe, 'Healthy_Donor2_5pe_Tcell_1k',  min.cells = 3, min.features = 200)
+se3_5pe <- CreateSeuratObject(set3.5pe$`Gene Expression`, 'Healthy_Donor3_5pe_PBMC_10k',  min.cells = 3, min.features = 200)
+se4_5pe <- CreateSeuratObject(set4.5pe$`Gene Expression`, 'Healthy_Donor4_5pe_PBMC_1k',  min.cells = 3, min.features = 200)
+se5_5pe <- CreateSeuratObject(set5.5pe$`Gene Expression`, 'Healthy_Donor5_5pe_PBMC_10k',  min.cells = 3, min.features = 200)
+```
+Compute some statistics for data sets.
+
+```{r}
+# create seurat object
+HACD8.list = list(se1_3pe, se2_3pe, se3_3pe, se4_3pe, se5_3pe, 
+                  se1_5pe, se2_5pe, se3_5pe, se4_5pe, se5_5pe)
+
+for(i in 1:length(HACD8.list)){
+  HACD8.list[[i]][["percent.mt"]] <- PercentageFeatureSet(object = HACD8.list[[i]], pattern = "^MT-")
+  HACD8.list[[i]][["percent.rp"]] <- PercentageFeatureSet(object = HACD8.list[[i]], pattern = "^RP[S|L]")
+  print(VlnPlot(HACD8.list[[i]], features = c("nFeature_RNA", "nCount_RNA", "percent.mt", "percent.rp"), ncol = 4, pt.size = 0))
+}
+```
+Add antibody data where they exist and are relevant (ie. data sets 1,4 for 3' sequencing and data sets 1,2,4,5 for 5' one). We also simplify the names so they are reduced just to names of markers (keep in mind that they have to be called with name of assay in that case)
+
+```{r}
+ab.list <- list(set1.3pe, set4.3pe, set1.5pe, set3.5pe, set4.5pe, set5.5pe)
+object.nums <- c(1,4,6,8,9,10)
+
+for(i in 1:length(ab.list)){
+  ab_assay <- ab.list[[i]]$`Antibody Capture`
+  ab_assay <- ab_assay[,colnames(ab_assay) %in% colnames(HACD8.list[[object.nums[i]]])]
+  rownames(ab_assay) <- gsub('isotype_control.', '', rownames(ab_assay))
+  rownames(ab_assay) <- unlist(lapply(rownames(ab_assay), function(x) strsplit(x, '_|\\.')[[1]][1]))
+  ab_assay <- CreateAssayObject(counts = ab_assay)
+  HACD8.list[[object.nums[i]]][['Antibodies']] <- ab_assay
+}
+
+```
+
+Add VDJ while also removing VDJ duplicate cells for cases where VDJ information is available:
+
+```{r, fig.width = 10, fig.height = 15,  include = F}
+vdj.data <- load.10X.VDJ('Initial_Data/vdj_v1_hs_pbmc3_t_filtered_contig_annotations.csv')
+vdj.doublets <- trace.VDJ.duplicates(HACD8.list[[6]], vdj.data)
+HACD8.list[[6]] <- subset(HACD8.list[[6]], cells = colnames(HACD8.list[[6]])[!(colnames(HACD8.list[[6]]) %in% vdj.doublets)])
+HACD8.list[[6]] <- create.VDJ.metadata(HACD8.list[[6]], vdj.data, filter.vdj = T, generate.clonotypes = F)
+
+vdj.data <- load.10X.VDJ('Initial_Data/sc5p_v2_hs_T_1k_multi_5gex_t_vdj_t_all_contig_annotations.csv')
+vdj.doublets <- trace.VDJ.duplicates(HACD8.list[[7]], vdj.data)
+HACD8.list[[7]] <- subset(HACD8.list[[7]], cells = colnames(HACD8.list[[7]])[!(colnames(HACD8.list[[7]]) %in% vdj.doublets)])
+vdj.data[vdj.data == ''] <- 'None'
+vdj.data[vdj.data == 'true'] <- 'True'
+vdj.data[vdj.data == 'false'] <- 'False'
+HACD8.list[[7]] <- create.VDJ.metadata(HACD8.list[[7]], vdj.data, filter.vdj = T, generate.clonotypes = F)
+
+vdj.data <- load.10X.VDJ('Initial_Data/sc5p_v2_hs_PBMC_10k_multi_5gex_5fb_b_t_vdj_t_all_contig_annotations.csv')
+vdj.doublets <- trace.VDJ.duplicates(HACD8.list[[8]], vdj.data)
+HACD8.list[[8]] <- subset(HACD8.list[[8]], cells = colnames(HACD8.list[[8]])[!(colnames(HACD8.list[[8]]) %in% vdj.doublets)])
+vdj.data[vdj.data == ''] <- 'None'
+vdj.data[vdj.data == 'true'] <- 'True'
+vdj.data[vdj.data == 'false'] <- 'False'
+HACD8.list[[8]] <- create.VDJ.metadata(HACD8.list[[8]], vdj.data, filter.vdj = T, generate.clonotypes = F)
+
+vdj.data <- load.10X.VDJ('Initial_Data/sc5p_v2_hs_PBMC_1k_t_filtered_contig_annotations.csv')
+vdj.doublets <- trace.VDJ.duplicates(HACD8.list[[9]], vdj.data)
+HACD8.list[[9]] <- subset(HACD8.list[[9]], cells = colnames(HACD8.list[[9]])[!(colnames(HACD8.list[[9]]) %in% vdj.doublets)])
+HACD8.list[[9]] <- create.VDJ.metadata(HACD8.list[[9]], vdj.data, filter.vdj = T, generate.clonotypes = F)
+
+vdj.data <- load.10X.VDJ('Initial_Data/vdj_v1_hs_pbmc2_t_filtered_contig_annotations.csv')
+vdj.doublets <- trace.VDJ.duplicates(HACD8.list[[10]], vdj.data)
+HACD8.list[[10]] <- subset(HACD8.list[[10]], cells = colnames(HACD8.list[[10]])[!(colnames(HACD8.list[[10]]) %in% vdj.doublets)])
+HACD8.list[[10]] <- create.VDJ.metadata(HACD8.list[[10]], vdj.data, filter.vdj = T, generate.clonotypes = F)
+```
+
+We also subset cells on minimum number of genes.
+
+```{r}
+for(i in 1:10){
+  HACD8.list[[i]] <- subset(HACD8.list[[i]], subset = nFeature_RNA > 500)
+}
+```
+
+# Pre-analysis
+
+```{r, results=F, include = FALSE}
+for (i in 1:length(HACD8.list)) {
+  HACD8.list[[i]] <- NormalizeData(object = HACD8.list[[i]])
+  HACD8.list[[i]] <- FindVariableFeatures(HACD8.list[[i]], selection.method = "vst", nfeatures = 1000, 
+                                          verbose = FALSE)
+  
+  HACD8.list[[i]] <- ScaleData(HACD8.list[[i]], verbose = FALSE)
+  HACD8.list[[i]] <- RunPCA(HACD8.list[[i]], npcs = 20, verbose = FALSE)
+  HACD8.list[[i]] <- RunUMAP(HACD8.list[[i]], reduction = "pca", dims = 1:20)
+  
+  HACD8.list[[i]] <- FindNeighbors(HACD8.list[[i]], dims = 1:20)
+  HACD8.list[[i]] <- FindClusters(HACD8.list[[i]], resolution = 0.4)
+}
+```
+
+Plot pictures:
+
+```{r}
+for(i in 1:length(HACD8.list)){
+  print(DimPlot(HACD8.list[[i]], reduction = "umap", group.by = "seurat_clusters", label = TRUE))
+  
+  print(VlnPlot(HACD8.list[[i]], features = c("nFeature_RNA", "nCount_RNA", "percent.mt", "percent.rp"), ncol = 2, pt.size = 0))
+}
+```
+
+```{r, fig.width = 10}
+for(i in 1:length(HACD8.list)){
+  print(FeaturePlot(HACD8.list[[i]], c('CD8A', 'CD8B')))
+}
+```
+
+# First round of filtering
+
+First round of filtering:
+
+```{r, results = F, include = F}
+subset.cluster.list = list(c(2,7), c(4,6,11), c(2,9), c(4,5,6), c(3,5,7), c(3,5,6,7), c(1,3), c(4,5,6,7), c(2,5,6), c(4,5,6))
+
+for (i in 1:length(HACD8.list)) {
+  HACD8.list[[i]] <- subset(HACD8.list[[i]], seurat_clusters %in% subset.cluster.list[[i]])
+  
+  HACD8.list[[i]] <- NormalizeData(object = HACD8.list[[i]])
+  HACD8.list[[i]] <- FindVariableFeatures(HACD8.list[[i]], selection.method = "vst", nfeatures = 1000, 
+                                          verbose = FALSE)
+  
+  HACD8.list[[i]] <- ScaleData(HACD8.list[[i]], verbose = FALSE)
+  HACD8.list[[i]] <- RunPCA(HACD8.list[[i]], npcs = 20, verbose = FALSE)
+  HACD8.list[[i]] <- RunUMAP(HACD8.list[[i]], reduction = "pca", dims = 1:20)
+  
+  HACD8.list[[i]] <- FindNeighbors(HACD8.list[[i]], dims = 1:20)
+  HACD8.list[[i]] <- FindClusters(HACD8.list[[i]], resolution = 0.8)
+}
+```
+
+Re-plot:
+
+```{r}
+for(i in 1:length(HACD8.list)){
+  print(DimPlot(HACD8.list[[i]], reduction = "umap", group.by = "seurat_clusters", label = TRUE))
+  
+  print(VlnPlot(HACD8.list[[i]], features = c("nFeature_RNA", "nCount_RNA", "percent.mt", "percent.rp"), ncol = 2, pt.size = 0))
+}
+```
+
+```{r, fig.width = 10}
+for(i in 1:length(HACD8.list)){
+  print(FeaturePlot(HACD8.list[[i]], c('CD8A', 'CD8B')))
+}
+```
+
+# Second round of filtering
+
+We remove non-CD8+ cells and dead cells in finer manner. We also remove all cells having more than 10% of genes mapping to mitochondrial genes. We also limit maximum features per cell to 3200.
+
+```{r, results = F, include = F}
+subset.cluster.list = list(seq(0,5,1), c(seq(0,4,1),6,8), c(1,2,3), seq(0,4,1), c(0,1,3,4,5,6,7),
+                           c(0,1,2,3,4,6), c(0,1,2), c(0,1,2,3,4,5,7), c(0,1,2,3), c(0,1,2,3,4,7))
+
+
+for (i in 1:length(HACD8.list)) {
+  HACD8.list[[i]] <- subset(HACD8.list[[i]], seurat_clusters %in% subset.cluster.list[[i]] & 
+                            percent.mt < 10 & nFeature_RNA < 3200)
+  
+  HACD8.list[[i]] <- NormalizeData(object = HACD8.list[[i]])
+  HACD8.list[[i]] <- FindVariableFeatures(HACD8.list[[i]], selection.method = "vst", nfeatures = 1000, 
+                                          verbose = FALSE)
+  
+  HACD8.list[[i]] <- ScaleData(HACD8.list[[i]], verbose = FALSE)
+  HACD8.list[[i]] <- RunPCA(HACD8.list[[i]], npcs = 20, verbose = FALSE)
+  HACD8.list[[i]] <- RunUMAP(HACD8.list[[i]], reduction = "pca", dims = 1:20)
+  
+  HACD8.list[[i]] <- FindNeighbors(HACD8.list[[i]], dims = 1:20)
+  HACD8.list[[i]] <- FindClusters(HACD8.list[[i]], resolution = 0.7)
+}
+```
+
+```{r}
+titles = paste('Heathy HS donor CD8 from PBMC -',rep(paste('Donor',seq(1,5,1)), 2),
+               c(rep("- 3' seq", 5), rep("- 5' seq", 5)))
+
+for(i in 1:length(HACD8.list)){
+  print(DimPlot(HACD8.list[[i]], reduction = "umap", group.by = "seurat_clusters", label = TRUE)  + ggtitle(titles[i]))
+  
+  print(VlnPlot(HACD8.list[[i]], features = c("nFeature_RNA", "nCount_RNA", "percent.mt", "percent.rp"), ncol = 2, pt.size = 0))
+}
+```
+
+```{r, fig.width = 10}
+for(i in 1:length(HACD8.list)){
+  print(FeaturePlot(HACD8.list[[i]], c('CD8A', 'CD8B')))
+}
+```
+
+# Integration
+
+We now integrate everything together.
+
+```{r, results = F, include = F}
+HACD8.ia <- FindIntegrationAnchors(object.list = HACD8.list, dims = 1:20)
+HACD8.integrated <- IntegrateData(anchorset = HACD8.ia, dims = 1:20)
+DefaultAssay(HACD8.integrated) <- "integrated"
+HACD8.integrated <- ScaleData(HACD8.integrated, verbose = FALSE)
+HACD8.integrated <- RunPCA(HACD8.integrated, npcs = 15, verbose = FALSE)
+HACD8.integrated <- RunUMAP(HACD8.integrated, reduction = "pca", dims = 1:15)
+
+HACD8.integrated <- FindNeighbors(HACD8.integrated, dims = 1:10)
+HACD8.integrated <- FindClusters(HACD8.integrated, resolution = 0.5)
+```
+
+
+```{r, fig.width = 9}
+print(DimPlot(HACD8.integrated, reduction = "umap", group.by = "seurat_clusters", label = TRUE))
+print(DimPlot(HACD8.integrated, reduction = "umap", group.by = "orig.ident"))
+print(VlnPlot(HACD8.integrated, features = c("nFeature_RNA", "nCount_RNA", "percent.mt", "percent.rp"), ncol = 2, pt.size = 0))
+```
+
+
+Plot compositions by 3'/5' and data sets- we need to add 3'/5' first.
+ 
+```{r, fig.width = 9}
+# add 5pe / 3pe id
+HACD8.integrated@meta.data <- HACD8.integrated@meta.data %>% 
+  mutate(seq.end = ifelse(grepl('3pe', orig.ident), "3' sequencing", "5' sequencing"))
+
+# compute centers of gravity where scatterpies will be plotted
+gravity.centers <- as.data.frame(cbind(HACD8.integrated@reductions$umap@cell.embeddings,
+                                       HACD8.integrated@meta.data['seurat_clusters'])) %>%
+  group_by(seurat_clusters) %>% summarise(avg.x = mean(UMAP_1), avg.y = mean(UMAP_2))
+
+# compute counts for each strain.age for each cluster then join with gc coordinates
+data.comp <- HACD8.integrated@meta.data %>% 
+  group_by(seurat_clusters, orig.ident) %>% summarise(counts = n()) %>%
+  dcast(seurat_clusters ~ orig.ident) %>%
+  left_join(gravity.centers, by = 'seurat_clusters')
+data.comp[is.na(data.comp)] <- 0
+
+pie.radius = 2.5
+DimPlot(HACD8.integrated, group.by = 'seurat_clusters') + 
+  geom_scatterpie(aes(x = avg.x, y = avg.y, group = seurat_clusters), data = data.comp,
+                  cols = colnames(data.comp)[2:11], color='gray50', alpha = 0.8, 
+                  pie_scale = pie.radius) + coord_equal() + 
+  geom_label_repel(data = data.comp, aes(x = avg.x, y = avg.y + 0.7, 
+                                               label = as.character(seurat_clusters)), 
+                   direction = 'x', alpha = 0.8, size=2) +
+  ggtitle('Composition of steady-state data-set clusters \n by origin data sets')
+
+seq.comp <- HACD8.integrated@meta.data %>% 
+  group_by(seurat_clusters, seq.end) %>% summarise(counts = n()) %>%
+  dcast(seurat_clusters ~ seq.end) %>%
+  left_join(gravity.centers, by = 'seurat_clusters')
+
+pie.radius = 2.5
+DimPlot(HACD8.integrated, group.by = 'seurat_clusters') + 
+  geom_scatterpie(aes(x = avg.x, y = avg.y, group = seurat_clusters), data = seq.comp,
+                  cols = colnames(seq.comp)[2:3], color='gray50', alpha = 0.8, 
+                  pie_scale = pie.radius) + coord_equal() + 
+  geom_label_repel(data = seq.comp, aes(x = avg.x, y = avg.y + 0.7, 
+                                               label = as.character(seurat_clusters)), 
+                   direction = 'x', alpha = 0.8, size=2) +
+  ggtitle('Composition of steady-state data-set clusters \n by sequencing end')
+```
+
+# Removal of cluster 8 and re-integration
+
+Cluster 3 looks like MAIT cells - we keep it for HS Atlas with MAIT cells. We remove cluster 8 as it looks like dead cells. We then re-split the data-set, re-normalize it and recompute the variable features. We also remove TRA/TRB genes.
+
+```{r, cache = FALSE}
+HACD8.integrated.bc <- HACD8.integrated # backing up data
+HACD8.integrated <- subset(HACD8.integrated, seurat_clusters %in% seq(0,7,1))
+HS.split <- SplitObject(object = HACD8.integrated, split.by = 'orig.ident')
+
+# re-normalize and find variable features
+for(i in 1:length(HS.split)){
+  DefaultAssay(HS.split[[i]]) <- "RNA"
+  HS.split[[i]] <- NormalizeData(HS.split[[i]], verbose = FALSE)
+  HS.split[[i]] <- FindVariableFeatures(HS.split[[i]], selection.method = "vst", 
+                                       nfeatures = 1000, verbose = FALSE)
+}
+```
+
+Now we re-integrate the data.
+
+```{r, results=F, include = F}
+HACD8.ia <- FindIntegrationAnchors(object.list = HS.split, dims = 1:20)
+HACD8.integrated <- IntegrateData(anchorset = HACD8.ia, dims = 1:20)
+DefaultAssay(HACD8.integrated) <- "integrated"
+HACD8.integrated <- ScaleData(HACD8.integrated, verbose = FALSE)
+HACD8.integrated <- RunPCA(HACD8.integrated, npcs = 15, verbose = FALSE)
+HACD8.integrated <- RunUMAP(HACD8.integrated, reduction = "pca", dims = 1:15)
+
+HACD8.integrated <- FindNeighbors(HACD8.integrated, dims = 1:10)
+HACD8.integrated <- FindClusters(HACD8.integrated, resolution = 0.5)
+```
+
+```{r, fig.width = 9}
+print(DimPlot(HACD8.integrated, reduction = "umap", group.by = "seurat_clusters", label = TRUE))
+print(DimPlot(HACD8.integrated, reduction = "umap", group.by = "orig.ident"))
+print(VlnPlot(HACD8.integrated, features = c("nFeature_RNA", "nCount_RNA", "percent.mt", "percent.rp"), ncol = 2, pt.size = 0))
+```
+Small cluster 7 may be potentially doublets so we remove them as well and reintegrate again.
+
+```{r, cache = FALSE}
+HACD8.integrated.bc <- HACD8.integrated # backing up data
+HACD8.integrated <- subset(HACD8.integrated, seurat_clusters %in% seq(0,6,1))
+HS.split <- SplitObject(object = HACD8.integrated, split.by = 'orig.ident')
+
+# re-normalize and find variable features
+for(i in 1:length(HS.split)){
+  DefaultAssay(HS.split[[i]]) <- "RNA"
+  HS.split[[i]] <- NormalizeData(HS.split[[i]], verbose = FALSE)
+  HS.split[[i]] <- FindVariableFeatures(HS.split[[i]], selection.method = "vst", 
+                                       nfeatures = 1000, verbose = FALSE)
+}
+```
+
+```{r, results=F, include = F}
+HACD8.ia <- FindIntegrationAnchors(object.list = HS.split, dims = 1:20)
+HACD8.integrated <- IntegrateData(anchorset = HACD8.ia, dims = 1:20)
+DefaultAssay(HACD8.integrated) <- "integrated"
+HACD8.integrated <- ScaleData(HACD8.integrated, verbose = FALSE)
+HACD8.integrated <- RunPCA(HACD8.integrated, npcs = 15, verbose = FALSE)
+HACD8.integrated <- RunUMAP(HACD8.integrated, reduction = "pca", dims = 1:15)
+
+HACD8.integrated <- FindNeighbors(HACD8.integrated, dims = 1:10)
+HACD8.integrated <- FindClusters(HACD8.integrated, resolution = 0.5)
+```
+
+```{r, fig.width = 9}
+print(DimPlot(HACD8.integrated, reduction = "umap", group.by = "seurat_clusters", label = TRUE))
+print(DimPlot(HACD8.integrated, reduction = "umap", group.by = "orig.ident"))
+print(VlnPlot(HACD8.integrated, features = c("nFeature_RNA", "nCount_RNA", "percent.mt", "percent.rp"), ncol = 2, pt.size = 0))
+```
+
+```{r, fig.width = 10, fig.height = 15}
+print(FeaturePlot(HACD8.integrated, c('CD8A', 'CD8B', 'CCR7', 'CD62', 'CD28', 'CD27', 'CD44'), min.cutoff = 0))
+print(FeaturePlot(HACD8.integrated, c('CXCR3', 'CX3CR1', 'TBX21', 'KLRB1', 'IL2RB', 'IL7R'), min.cutoff = 0))
+```
+
+# Gene expression
+
+Need to validate this, so we'll print out key genes.
+
+```{r, fig.width = 10, fig.height = 15}
+print(FeaturePlot(HACD8.integrated, c('CD8A', 'CD8B', 'CCR7', 'CD62', 'CD28', 'CD27', 'CD44'), min.cutoff = 0))
+print(FeaturePlot(HACD8.integrated, c('CXCR3', 'CX3CR1', 'TBX21', 'KLRB1', 'IL2RB', 'IL7R'), min.cutoff = 0))
+```
+Normalize antibodies.
+
+```{r}
+HACD8.integrated <- NormalizeData(HACD8.integrated, normalization.method = "CLR", margin = 2, assay = "Antibodies")
+```
+
+Ctrl + S.
+
+```{r, fig.width = 10, fig.height = 15}
+saveRDS(HACD8.integrated, paste0('Donors_Datasets/CD8_HS_Atlas_data_10_VDJ.rds'))
+```
