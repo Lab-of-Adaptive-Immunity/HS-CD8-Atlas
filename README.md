@@ -8,6 +8,8 @@
   
   
 A readme for constructing a Human Atlas of CD8+ cells.
+The data-set in question is used, among others, in 
+manuscript written by Tsyklauri et al., 2022.
   
   
 
