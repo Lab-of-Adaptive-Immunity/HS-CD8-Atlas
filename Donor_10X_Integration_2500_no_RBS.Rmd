@@ -1,0 +1,540 @@
+---
+title: "CD8+ HS Dataset analysis and Integration"
+author: "Juraj Michalik"
+date: "4/26/2021"
+output: rmdformats::material
+---
+
+This script generates final data-sets used, among others, in manuscript written by Tsyklauri et al., 2022.
+The license applicable to this script (as well as others in this directory) can be consulted in GitHub repository (MIT, see respective file for details).
+
+Some of data-sets used in this atlas are downloaded from 10X site and as such are subject to their license;
+please see the list of used data-sets and consult their license (Creative Commons License).
+
+# Pre-processing and first analysis
+
+Analysis of data-sets made available by 10X. Integration of all 4 donors plus small 10X data-sets previously analyzed.
+
+WARNING: The (re-)integration steps take a long time (3-4h). 
+
+## Initialization 
+
+First we load all necessary packages here.
+
+```{r libs, include=FALSE}
+knitr::opts_chunk$set(include = TRUE, warning = FALSE, message = FALSE, 
+                      error = TRUE, cache = TRUE, cache.lazy = FALSE)
+library(Seurat, lib.loc = '/usr/lib64/R/library')
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(cowplot)
+library(gridExtra)
+library(dbscan)
+library(scatterpie)
+library(reshape2)
+library(ggrepel)
+library(scds)
+library(SingleCellExperiment)
+library(stringr)
+
+# negation of %in% 
+`%nin%` = Negate(`%in%`)
+
+# plots features. Default list is used if features are not provided.
+# organisms available: 'mouse', 'human'
+plot.GE <- function(seurat.obj, filepath, filename,
+                    features = NULL, organism = 'mouse'){
+  if(is.null(features)){
+    features <- c("Cd4", "Cd8a", "Cd8b1", "Cd44","Itga4","Il2rb","Tbx21","Eomes",
+                  "Klrg1","Gzmm","Itgb1","Ctla4","Pdcd1",
+                  "Fas","Fasl","Cx3cr1","Nkg7","Ccr7",
+                  "Sell","Id2","Id3","Cd69","Cxcr3",
+                  "Trgv2","Isg15","Ikzf2", "Foxp3", 
+                  "Ccr10", "Lgals3")
+  }
+  if(organism == 'human'){
+    features <- toupper(features)
+  }
+  feature.list <- split(features, ceiling(seq_along(features)/6))
+  
+  for(i in 1:length(feature.list)){
+    height.pdf <- 11.3
+    if (length(feature.list[[i]]) < 5 && length(feature.list[[i]]) > 2){
+      height.pdf <- 7.6
+    }else if (length(feature.list[[i]]) <= 2){
+      height.pdf <- 3.7
+    }
+    print(FeaturePlot(seurat.obj, feature.list[[i]], min.cutoff = 0))
+  }
+}
+
+source('VDJ_utilities.R')
+```
+
+Now we load the data.
+
+```{r, message = F}
+donor1 <- readRDS('Donors_Datasets/Donor_1_VDJ.rds')
+donor2 <- readRDS('Donors_Datasets/Donor_2_VDJ.rds')
+donor3 <- readRDS('Donors_Datasets/Donor_3_VDJ.rds')
+donor4 <- readRDS('Donors_Datasets/Donor_4_VDJ.rds')
+small_data <- readRDS('Donors_Datasets/CD8_HS_Atlas_data_10_VDJ.rds')
+```
+
+Create a list of integration for these data-sets. First of all small donors and of 10X split, then of everything together. We als remove ribosomal, mitochondrial and TRG/TRD variable, diversity and joining genes.
+
+```{r}
+donor.list <- list(donor1, donor2, donor3, donor4)
+
+for(i in 1:length(donor.list)){
+  genes.removed <- GetAssayData(donor.list[[i]], assay = 'RNA', slot = 'counts')
+  genes.removed <- genes.removed[!grepl('^MT-', rownames(genes.removed)),]
+  genes.removed <- genes.removed[!grepl('^RP(L|S)', rownames(genes.removed)),]
+  genes.removed <- genes.removed[!grepl('^TR(G|D)(V|D|J)', rownames(genes.removed)),]
+  
+  gene.bad.rem <- CreateSeuratObject(genes.removed, donor.list[[i]]@project.name)
+  gene.bad.rem@meta.data <- donor.list[[i]]@meta.data
+  
+  atb_assay <- GetAssayData(donor.list[[i]], assay = 'Antibodies', slot = 'counts')
+  rownames(atb_assay) <- gsub('-TotalSeqC', '', rownames(atb_assay))
+  atb_assay <- CreateAssayObject(atb_assay) 
+  gene.bad.rem[['Antibodies']] <- atb_assay
+  gene.bad.rem <- NormalizeData(gene.bad.rem, normalization.method = "CLR", 
+                                margin = 2, assay = "Antibodies")
+  
+  gene.bad.rem <- NormalizeData(gene.bad.rem, verbose = FALSE)
+  gene.bad.rem <- FindVariableFeatures(gene.bad.rem, selection.method = "vst", 
+                                       nfeatures = 2500, verbose = FALSE)  
+  donor.list[[i]] <- gene.bad.rem
+}
+
+data.10X.list <- SplitObject(small_data, split.by = 'orig.ident')
+for(i in 1:length(data.10X.list)){
+  genes.removed <- GetAssayData(data.10X.list[[i]], assay = 'RNA', slot = 'counts')
+  genes.removed <- genes.removed[!grepl('^MT-', rownames(genes.removed)),]
+  genes.removed <- genes.removed[!grepl('^RP(L|S)', rownames(genes.removed)),]
+  genes.removed <- genes.removed[!grepl('^TR(G|D)(V|D|J)', rownames(genes.removed)),]
+  
+  gene.bad.rem <- CreateSeuratObject(genes.removed, data.10X.list[[i]]@project.name)
+  gene.bad.rem@meta.data <- data.10X.list[[i]]@meta.data
+  
+  atb_assay <- GetAssayData(data.10X.list[[i]], assay = 'Antibodies', slot = 'counts')
+  atb_assay <- CreateAssayObject(atb_assay) 
+  gene.bad.rem[['Antibodies']] <- atb_assay  
+  gene.bad.rem <- NormalizeData(gene.bad.rem, normalization.method = "CLR", 
+                                margin = 2, assay = "Antibodies")
+  
+  gene.bad.rem <- NormalizeData(gene.bad.rem, verbose = FALSE)
+  gene.bad.rem <- FindVariableFeatures(gene.bad.rem, selection.method = "vst", 
+                                       nfeatures = 2500, verbose = FALSE)
+  data.10X.list[[i]] <- gene.bad.rem
+}
+all.data.list <- c(donor.list, data.10X.list)
+```
+
+Now integrate it together.
+
+```{r include=F, results=F}
+donors.anchors <- FindIntegrationAnchors(all.data.list, anchor.features = 2500, reference = 1)
+donors.integrated <- IntegrateData(donors.anchors)
+```
+
+## Analysis
+
+Here we perform the first analysis - caling, dimensional reduction (PCA, then UMAP) and clustering.
+
+```{r, results = F, include = F}
+donors.integrated <- ScaleData(donors.integrated, verbose = FALSE)
+donors.integrated <- RunPCA(donors.integrated, npcs = 20)
+donors.integrated <- RunUMAP(donors.integrated, reduction = "pca", 
+                             dims = 1:20)
+
+donors.integrated <- FindNeighbors(donors.integrated, dims = 1:20)
+donors.integrated <- FindClusters(donors.integrated, resolution = 0.4, random.seed = 42)
+```
+
+
+```{r}
+print(DimPlot(donors.integrated, reduction = "umap", group.by = "seurat_clusters", 
+              label = TRUE, raster = F))
+print(VlnPlot(donors.integrated, features = c("nFeature_RNA", "nCount_RNA", "percent.mt", "percent.rp"), ncol = 2, pt.size = 0))
+
+pdf('General/Atlas_Donor_Integrated_Source_Clusters_Raw.pdf', width = 9.3, height = 5.8)
+print(DimPlot(donors.integrated, reduction = "umap", group.by = "seurat_clusters", 
+              label = TRUE, raster = F) + ggtitle('HS CD8+ Atlas 160k cells'))
+dev.off()
+
+pdf('General/Atlas_Donor_Integrated_Source_Vln_Raw.pdf', width = 9.3, height = 5.8)
+print(VlnPlot(donors.integrated, 
+              features = c("nFeature_RNA", "nCount_RNA", "percent.mt", "percent.rp"), 
+              ncol = 2, pt.size = 0) + 
+  ggtitle('HS CD8+ Atlas 160k cells'))
+dev.off()
+```
+
+```{r, fig.width = 10, fig.height = 15}
+features <- c('GZMA', 'GZMB', 'GZMH', 'GZMK', 'CXCR4', 'GNLY',  
+              'CCR7', 'AIF1', 'LEF1', 'SELL', 'TCF7', 'IL7R', 
+              'EGR1', 'CD7', 'CD69', 'CD74', 'LGALS3', 'FGFBP2',
+              'NKG7', 'KLRC2', 'KLRC3', 'FOXP3', 'HLA-DRB1', 'HLA-DRA',
+              'HLA-DPA1', 'HLA-DRB5', 'CCL5', 'PTPRC', 'HLA-DQB1', 
+              'KLRD1', 'KLRG1', 'CX3CR1', 'NCR3', 'IL2RB', 
+              'IFNG-AS1', 'KLRB1', 'EGR1', 'CCR6', 'IGKV2-30',
+              'ITGB1', 'FOXP1')
+
+plot.GE(donors.integrated, '', 'Atlas_HS_No_Ribo', features)
+```
+
+## VDJ analysis
+
+We look through data of VDJ, first looking on clusters that even have VDJ. This is fast but purely exploratory; in final version we'll apply more precise clone definition.
+
+```{r, fig.width = 8}
+with.vdj <- c('Donor1_HS_CD8', 'Donor2_HS_CD8', 'Donor3_HS_CD8', 'Donor4_HS_CD8',
+              'Healthy_Donor_5pe_PBMC_10k', 'Healthy_Donor2_5pe_Tcell_1k',
+              'Healthy_Donor3_5pe_PBMC_10k', 'Healthy_Donor4_5pe_PBMC_1k',
+               'Healthy_Donor5_5pe_PBMC_10k')
+
+donors.integrated@meta.data <- donors.integrated@meta.data %>%
+  mutate(cdr3.any = case_when(!(orig.ident %in% with.vdj) ~ 'No VDJ info',
+                              (orig.ident %in% with.vdj & 
+                                 (is.na(cdr3_A1) & is.na(cdr3_A2) & is.na(cdr3_B))) ~ 'No CDR3',
+                              (orig.ident %in% with.vdj & 
+                                 (!is.na(cdr3_A1) | !is.na(cdr3_A2) | !is.na(cdr3_B))) ~ 'CDR3')
+         ) %>%
+  mutate(cdr3A.any = case_when(!(orig.ident %in% with.vdj) ~ 'No VDJ info',
+                              (orig.ident %in% with.vdj & 
+                                 (is.na(cdr3_A1) & is.na(cdr3_A2))) ~ 'No CDR3A',
+                              (orig.ident %in% with.vdj & 
+                                 (!is.na(cdr3_A1) | !is.na(cdr3_A2))) ~ 'CDR3A')
+         ) %>%
+  mutate(cdr3B.any = case_when(!(orig.ident %in% with.vdj) ~ 'No VDJ info',
+                              (orig.ident %in% with.vdj & is.na(cdr3_B)) ~ 'No CDR3B',
+                              (orig.ident %in% with.vdj & !is.na(cdr3_B)) ~ 'CDR3B')
+         ) %>%
+  mutate(clonotype.rough = paste(cdr3_A1, cdr3_A2, cdr3_B, sep = '-')) %>%
+  mutate(clonotype.rough = gsub('-NA-', '-', clonotype.rough)) %>%
+  mutate(clonotype.rough = ifelse(grepl('(^NA-)|(-NA$)', clonotype.rough),'Incomplete',clonotype.rough))
+
+frequent.clonotypes <- donors.integrated@meta.data %>%
+  group_by(clonotype.rough) %>% summarise(count = n()) %>% 
+  filter(count > 20) %>% ungroup %>% arrange(-count) %>%
+  dplyr::slice(n = -1) %>% top_n(n = 20)
+
+donors.integrated@meta.data <- donors.integrated@meta.data %>%
+  mutate(clonotype.freq = ifelse(clonotype.rough %in% frequent.clonotypes$clonotype.rough,
+                                  clonotype.rough, 'Unspecified'))
+
+
+print(DimPlot(donors.integrated, reduction = "umap", group.by = "cdr3.any", 
+              cols = c('darkviolet', 'firebrick1', adjustcolor('gray70', alpha.f = 0.5)),
+              raster = F) + ggtitle('HS CD8+ Atlas 160k cells - CDR3'))
+
+print(DimPlot(donors.integrated, reduction = "umap", group.by = "cdr3A.any", 
+              cols = c('darkviolet', 'firebrick1', adjustcolor('gray70', alpha.f = 0.5)),
+              raster = F) + ggtitle('HS CD8+ Atlas 160k cells - CDR3A'))
+
+print(DimPlot(donors.integrated, reduction = "umap", group.by = "cdr3B.any", 
+              cols = c('darkviolet', 'firebrick1', adjustcolor('gray70', alpha.f = 0.5)),
+              raster = F) + ggtitle('HS CD8+ Atlas 160k cells - CDR3B'))
+
+print(DimPlot(donors.integrated, reduction = "umap", group.by = "clonotype.freq", 
+              cols = c(rainbow(20), adjustcolor('gray70', alpha.f = 0.5)),
+              raster = F) + ggtitle('HS CD8+ Atlas 160k cells - Top CDR3') +
+        guides(color=guide_legend(override.aes = list(size=4), ncol=1)))
+```
+
+Let's see the number of all cells with and without VDJ per clusters.
+
+```{r}
+gravity.centers <- as.data.frame(cbind(donors.integrated@reductions$umap@cell.embeddings,
+                                       donors.integrated@meta.data['seurat_clusters'])) %>%
+  group_by(seurat_clusters) %>% summarise(avg.x = mean(UMAP_1), avg.y = mean(UMAP_2))
+
+vdj.stats <- donors.integrated@meta.data %>% 
+  group_by(seurat_clusters, cdr3.any) %>% summarise(counts = n()) %>%
+  dcast(seurat_clusters ~ cdr3.any) %>%
+  left_join(gravity.centers, by = 'seurat_clusters')
+
+pie.radius = 2.5
+DimPlot(donors.integrated, group.by = 'seurat_clusters', raster = F) + 
+  geom_scatterpie(aes(x = avg.x, y = avg.y, group = seurat_clusters), data = vdj.stats,
+                  cols = colnames(vdj.stats)[2:4], color='gray50', alpha = 0.8, 
+                  pie_scale = pie.radius) + coord_equal() + 
+  geom_label_repel(data = vdj.stats, aes(x = avg.x, y = avg.y + 0.7, 
+                                         label = as.character(seurat_clusters)), 
+                   direction = 'x', alpha = 0.8, size=2) +
+  ggtitle('HS CD8+ Atlas: proportions of identified CDR3')
+
+vdj.stats.A <- donors.integrated@meta.data %>% 
+  group_by(seurat_clusters, cdr3A.any) %>% summarise(counts = n()) %>%
+  dcast(seurat_clusters ~ cdr3A.any) %>%
+  left_join(gravity.centers, by = 'seurat_clusters')
+
+pie.radius = 2.5
+DimPlot(donors.integrated, group.by = 'seurat_clusters', raster = F) + 
+  geom_scatterpie(aes(x = avg.x, y = avg.y, group = seurat_clusters), data = vdj.stats.A,
+                  cols = colnames(vdj.stats.A)[2:4], color='gray50', alpha = 0.8, 
+                  pie_scale = pie.radius) + coord_equal() + 
+  geom_label_repel(data = vdj.stats.A, aes(x = avg.x, y = avg.y + 0.7, 
+                                         label = as.character(seurat_clusters)), 
+                   direction = 'x', alpha = 0.8, size=2) +
+  ggtitle('HS CD8+ Atlas: proportions of identified CDR3A')
+
+vdj.stats.B <- donors.integrated@meta.data %>% 
+  group_by(seurat_clusters, cdr3B.any) %>% summarise(counts = n()) %>%
+  dcast(seurat_clusters ~ cdr3B.any) %>%
+  left_join(gravity.centers, by = 'seurat_clusters')
+
+pie.radius = 2.5
+DimPlot(donors.integrated, group.by = 'seurat_clusters', raster = F) + 
+  geom_scatterpie(aes(x = avg.x, y = avg.y, group = seurat_clusters), data = vdj.stats.B,
+                  cols = colnames(vdj.stats.B)[2:4], color='gray50', alpha = 0.8, 
+                  pie_scale = pie.radius) + coord_equal() + 
+  geom_label_repel(data = vdj.stats.B, aes(x = avg.x, y = avg.y + 0.7, 
+                                         label = as.character(seurat_clusters)), 
+                   direction = 'x', alpha = 0.8, size=2) +
+  ggtitle('HS CD8+ Atlas: proportions of identified CDR3B')
+```
+
+## Antibody analysis
+
+First normalize antibody counts.
+
+```{r}
+DefaultAssay(donors.integrated) <- "Antibodies"
+donors.integrated <- NormalizeData(donors.integrated, normalization.method = "CLR", margin = 2)
+DefaultAssay(donors.integrated) <- "integrated"
+```
+
+And visualize Antibodies we're interested in.
+
+```{r, fig.width = 15, fig.height = 15}
+FeaturePlot(donors.integrated, rownames(donors.integrated[["Antibodies"]]@data)[1:14])
+```
+
+Looks gut (as far as intermediate state goes anyway). Saving the data.
+
+```{r}
+saveRDS(donors.integrated, 'Donors_Datasets/Donors_Integrated_Raw.rds')
+```
+
+# Finalizing data-set with MAIT cells
+
+## Subsetting and re-clustering
+
+We remove cluster 11 (most likely dead cells). For now we keep MAIT cells: cluster 7. Cluster 12 might potentially contain doublets but it also may contain exhausted cells, so we keep it for now. Cluster 13 is also a bit suspicious but we keep it until we find out what it is, as it may be some potentially interesting distribution.
+ 
+```{r}
+donors.integrated <- subset(donors.integrated,  seurat_clusters %nin% 11)
+donor.list <- SplitObject(donors.integrated, split.by = 'orig.ident')
+for(i in 1:length(donor.list)){
+  DefaultAssay(object = donor.list[[i]]) <- "RNA"
+  donor.list[[i]] <- NormalizeData(donor.list[[i]], verbose = FALSE)
+  donor.list[[i]] <- FindVariableFeatures(donor.list[[i]], selection.method = "vst", 
+                                       nfeatures = 2500, verbose = FALSE)
+  donor.list[[i]] <- NormalizeData(donor.list[[i]], verbose = FALSE, normalization.method = 'CLR', 
+                                   margin = 2, assay = 'Antibodies')
+}
+```
+
+Re-integrate everything again.
+
+```{r, results=F, include = F}
+donors.anchors <- FindIntegrationAnchors(donor.list, anchor.features = 2500, reference = 1)
+donors.integrated <- IntegrateData(donors.anchors)
+```
+
+## Re-analysis
+
+Re-do analysis.
+
+```{r, results = F, include = F}
+donors.integrated <- ScaleData(donors.integrated, verbose = FALSE)
+donors.integrated <- RunPCA(donors.integrated, npcs = 20)
+donors.integrated <- RunUMAP(donors.integrated, reduction = "pca", 
+                             dims = 1:20)
+
+donors.integrated <- FindNeighbors(donors.integrated, dims = 1:20)
+donors.integrated <- FindClusters(donors.integrated, resolution = 0.4, random.seed = 42)
+```
+And plot again.
+
+```{r}
+print(DimPlot(donors.integrated, reduction = "umap", group.by = "seurat_clusters", 
+              label = TRUE, raster = F))
+print(VlnPlot(donors.integrated, features = c("nFeature_RNA", "nCount_RNA", "percent.mt", "percent.rp"), ncol = 2, pt.size = 0))
+
+pdf('General/Atlas_Donor_Integrated_Source_Clusters_MAIT.pdf', width = 9.3, height = 5.8)
+print(DimPlot(donors.integrated, reduction = "umap", group.by = "seurat_clusters", 
+              label = TRUE, raster = F) + ggtitle('HS CD8+ Atlas 160k cells'))
+dev.off()
+
+pdf('General/Atlas_Donor_Integrated_Source_Vln_Ribo_MAIT.pdf', width = 9.3, height = 5.8)
+print(VlnPlot(donors.integrated, 
+              features = c("nFeature_RNA", "nCount_RNA", "percent.mt", "percent.rp"), 
+              ncol = 2, pt.size = 0) + 
+  ggtitle('HS CD8+ Atlas 160k cells'))
+dev.off()
+```
+
+## OPTICS clustering application and annotating with semi-invariant clones
+
+For separate Human Atlas with MAIT cells (currently cluster 6), we also annotate the cells that have specific CDR3A sequence CAV.DSNYQLIW (. being wildcard symbol). We also we perform re-clustering using different method - OPTICs - to reduce the number of clusters before by reducing the resolution - we want  one cluster for naive, memory, effector, supereffector-like and MAIT cells. We are doing this for data-set with MAIT cells only.
+
+```{r, include = F, results = F}
+# cluster number reduction using optics clustering
+donors.mait.save <- donors.integrated
+umap.dims <- as.data.frame(donors.mait.save@reductions$umap@cell.embeddings)
+
+optics.umap <- dbscan::optics(as.matrix(umap.dims), minPts = 500)
+optics.umap <- extractDBSCAN(optics.umap, eps_cl = .55)
+donors.mait.save$optics = as.factor(optics.umap$cluster) # add clustering results
+DimPlot(donors.mait.save, group.by = 'optics', label = T) + 
+  ggtitle('OPTICS')
+  
+
+# find all cells where one of CDR3A sequences has such VDJ
+donors.mait.save@meta.data <- donors.mait.save@meta.data %>%
+  mutate(MAIT.motif = ifelse(grepl('CAV.DSNYQLIW', cdr3_A1), cdr3_A1,
+                             ifelse(grepl('CAV.DSNYQLIW', cdr3_A2), cdr3_A2, 'Other motif')))
+```
+
+Save inter-mediate data-set with MAIT cells and reduced number of clusters.
+
+```{r}
+saveRDS(donors.mait.save, 'Donors_Datasets/Donors_Integrated_with_MAIT_final.rds')
+remove(donors.mait.save)
+```
+
+# Finalizing data-set without MAIT cells
+
+## Re-integration
+
+We prepare the data-set without MAIT cell. We therefore remove cluster 6 from the last data-set.
+
+```{r}
+donors.integrated <- subset(donors.integrated,  seurat_clusters %nin% 6)
+donor.list <- SplitObject(donors.integrated, split.by = 'orig.ident')
+for(i in 1:length(donor.list)){
+  DefaultAssay(object = donor.list[[i]]) <- "RNA"
+  donor.list[[i]] <- NormalizeData(donor.list[[i]], verbose = FALSE)
+  donor.list[[i]] <- FindVariableFeatures(donor.list[[i]], selection.method = "vst", 
+                                       nfeatures = 2500, verbose = FALSE)
+  donor.list[[i]] <- NormalizeData(donor.list[[i]], verbose = FALSE, normalization.method = 'CLR', 
+                                   margin = 2, assay = 'Antibodies')
+}
+```
+
+Perform re-integration.
+
+```{r, include=F, results=F}
+donors.anchors <- FindIntegrationAnchors(donor.list, anchor.features = 2500, reference = 1)
+donors.integrated <- IntegrateData(donors.anchors)
+```
+
+```{r, results = F, include=F}
+donors.integrated <- ScaleData(donors.integrated, verbose = FALSE)
+donors.integrated <- RunPCA(donors.integrated, npcs = 20)
+donors.integrated <- RunUMAP(donors.integrated, reduction = "pca", 
+                             dims = 1:20)
+
+donors.integrated <- FindNeighbors(donors.integrated, dims = 1:20)
+donors.integrated <- FindClusters(donors.integrated, resolution = 0.11, random.seed = 42)
+```
+
+Plot again.
+
+```{r}
+print(DimPlot(donors.integrated, reduction = "umap", group.by = "seurat_clusters", 
+              label = TRUE, raster = F))
+print(VlnPlot(donors.integrated, features = c("nFeature_RNA", "nCount_RNA", "percent.mt", "percent.rp"), ncol = 2, pt.size = 0))
+
+pdf('General/Atlas_Donor_Integrated_Source_Clusters_no_MAIT.pdf', width = 9.3, height = 5.8)
+print(DimPlot(donors.integrated, reduction = "umap", group.by = "seurat_clusters", 
+              label = TRUE, raster = F) + ggtitle('HS CD8+ Atlas 160k cells'))
+dev.off()
+
+pdf('General/Atlas_Donor_Integrated_Source_Vln_no_MAIT.pdf', width = 9.3, height = 5.8)
+print(VlnPlot(donors.integrated, 
+              features = c("nFeature_RNA", "nCount_RNA", "percent.mt", "percent.rp"), 
+              ncol = 2, pt.size = 0) + 
+  ggtitle('HS CD8+ Atlas 160k cells'))
+dev.off()
+```
+
+Add unified and finalized clonotyping.
+
+```{r, include=F, results=F}
+donors.integrated <- create.clones(seurat.obj = donors.integrated)
+```
+
+# Using optics clustering
+
+```{r}
+umap.dims <- as.data.frame(donors.integrated@reductions$umap@cell.embeddings)
+
+optics.umap <- dbscan::optics(as.matrix(umap.dims), minPts = 500)
+optics.umap <- extractDBSCAN(optics.umap, eps_cl = .55)
+donors.integrated$optics = as.factor(optics.umap$cluster) # add clustering results
+DimPlot(donors.integrated, group.by = 'optics', label = T) + 
+  ggtitle('Donors data-set - dbscan clustering\n (UMAP - 2 dims)')
+
+```
+
+## Differential Expression on OPTICS clustering - supereffectors
+
+```{r}
+Idents(donors.integrated) <- donors.integrated$optics
+DE.markers <- FindMarkers(donors.integrated, assay = 'RNA', ident.1 = 3, min.pct = 0, logfc.threshold = log2(1.5)) %>% 
+  arrange(-avg_log2FC) %>% filter(p_val <= 0.01)
+```
+
+## Complementary analyses
+
+Process Antibody assay.
+
+```{r}
+#antibody.assay <- GetAssayData(donors.integrated, assay = 'Antibodies', slot = 'counts')
+#rownames(antibody.assay) <- gsub('-TotalSeqC', '', rownames(antibody.assay))
+#donors.integrated[['Antibodies']] <- CreateAssayObject(counts = antibody.assay)
+#donors.integrated <- NormalizeData(donors.integrated, normalization.method = "CLR", margin = 2, assay = "Antibodies")
+```
+
+Compute composition and proportion of cells for integrated data-set and plot it.
+
+```{r}
+table.stat <- donors.integrated.maitless@meta.data %>% 
+  select(orig.ident, optics) %>%
+  group_by(orig.ident, optics) %>%
+  mutate(count.source.cluster = n()) %>% ungroup %>%
+  group_by(orig.ident) %>% mutate(count.source = n()) %>%
+  ungroup %>% filter(optics == 3) %>% 
+  mutate(frequency = 100*count.source.cluster/count.source) %>%
+  group_by(orig.ident) %>% filter(row_number() == 1)
+
+prismSE <- ggplot(data = table.stat, aes(x = as.factor(optics), y = frequency)) +
+  geom_jitter(col = 'firebrick1',
+              width = 0.1, size = 4) + 
+  xlab('SE-like') +
+  ggtitle('Cluster 5') +
+  stat_summary(fun=median, geom = "crossbar", width = 0.4)+
+  theme(plot.title = element_text(hjust = 0.5,  face = 'bold', size = 20),
+        legend.position = "none",
+        axis.text.x = element_blank(),
+        axis.text.y = element_text(size = 20),
+        axis.title=element_text(size=20),
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        panel.background = element_blank(), axis.line = element_line(colour = "black"))
+
+ggsave(file="Manuscript_Figures/Atlas_1_Prism.svg", plot=prismSE, width=3, height=6)
+  
+```
+
+Save finalized data.
+
+```{r, include=F, results=F}
+saveRDS(donors.integrated, 'Donors_Datasets/Donors_Integrated_no_MAIT_final.rds')
+```

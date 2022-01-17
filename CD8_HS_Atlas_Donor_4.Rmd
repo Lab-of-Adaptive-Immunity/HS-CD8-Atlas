@@ -5,9 +5,15 @@ date: "4/26/2021"
 output: rmdformats::material
 ---
 
-Analysis of BIG! data-sets made available by 10X. This one includes only Donor 4.
+This script pre-processes one of data-sets used to build HS Atlas presented, among others, in manuscript written by Tsyklauri et al., 2022.
+The license applicable to this script (as well as others in this directory) can be consulted in GitHub repository (MIT, see respective file for details).
+
+Some of data-sets used in this atlas are downloaded from 10X site and as such are subject to their license;
+please see the list of used data-sets and consult their license (Creative Commons License).
 
 # Initialization 
+
+Analysis of Donor 4 data-set.
 
 First we load all necessary packages here.
 

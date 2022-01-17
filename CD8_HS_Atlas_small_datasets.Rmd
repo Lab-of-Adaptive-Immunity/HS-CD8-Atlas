@@ -5,6 +5,12 @@ date: "4/19/2021"
 output: rmdformats::material
 ---
 
+This script pre-processes various small data-sets used to build HS Atlas presented, among others, in manuscript written by Tsyklauri et al., 2022.
+The license applicable to this script (as well as others in this directory) can be consulted in GitHub repository (MIT, see respective file for details).
+
+Some of data-sets used in this atlas are downloaded from 10X site and as such are subject to their license;
+please see the list of used data-sets and consult their license (Creative Commons License).
+
 # Initialization 
 
 First we load all necessary packages here.
@@ -62,17 +68,17 @@ For 5' data, we also have VDJ data available. We load the files too.
 
 ```{r}
 # create seurat object
-se1_3pe <- CreateSeuratObject(set1.3pe$`Gene Expression`, 'Healthy_Donor_3pe_PBMC_10k',  min.cells = 3, min.features = 200)
-se2_3pe <- CreateSeuratObject(set2.3pe$`Gene Expression`, 'Healthy_Donor2_3pe_PBMC_10k_2S',  min.cells = 3, min.features = 200)
-se3_3pe <- CreateSeuratObject(set3.3pe, 'Healthy_Donor3_3pe_PBMC_5k',  min.cells = 3, min.features = 200)
-se4_3pe <- CreateSeuratObject(set4.3pe$`Gene Expression`, 'Healthy_Donor4_3pe_PBMC_10k_2S',  min.cells = 3, min.features = 200)
-se5_3pe <- CreateSeuratObject(set5.3pe, 'Healthy_Donor5_3pe_PBMC_8k',  min.cells = 3, min.features = 200)
+se1_3pe <- CreateSeuratObject(set1.3pe$`Gene Expression`, 'Data_Set_1_3pe_PBMC_10k',  min.cells = 3, min.features = 200)
+se2_3pe <- CreateSeuratObject(set2.3pe$`Gene Expression`, 'Data_Set_2_3pe_PBMC_10k_2S',  min.cells = 3, min.features = 200)
+se3_3pe <- CreateSeuratObject(set3.3pe, 'Data_Set_3_3pe_PBMC_5k',  min.cells = 3, min.features = 200)
+se4_3pe <- CreateSeuratObject(set4.3pe$`Gene Expression`, 'Data_Set_4_3pe_PBMC_10k_2S',  min.cells = 3, min.features = 200)
+se5_3pe <- CreateSeuratObject(set5.3pe, 'Data_Set_5_3pe_PBMC_8k',  min.cells = 3, min.features = 200)
 
-se1_5pe <- CreateSeuratObject(set1.5pe$`Gene Expression`, 'Healthy_Donor_5pe_PBMC_10k',  min.cells = 3, min.features = 200)
-se2_5pe <- CreateSeuratObject(set2.5pe, 'Healthy_Donor2_5pe_Tcell_1k',  min.cells = 3, min.features = 200)
-se3_5pe <- CreateSeuratObject(set3.5pe$`Gene Expression`, 'Healthy_Donor3_5pe_PBMC_10k',  min.cells = 3, min.features = 200)
-se4_5pe <- CreateSeuratObject(set4.5pe$`Gene Expression`, 'Healthy_Donor4_5pe_PBMC_1k',  min.cells = 3, min.features = 200)
-se5_5pe <- CreateSeuratObject(set5.5pe$`Gene Expression`, 'Healthy_Donor5_5pe_PBMC_10k',  min.cells = 3, min.features = 200)
+se1_5pe <- CreateSeuratObject(set1.5pe$`Gene Expression`, 'Data_Set_6_5pe_PBMC_10k',  min.cells = 3, min.features = 200)
+se2_5pe <- CreateSeuratObject(set2.5pe, 'Data_Set_7_5pe_Tcell_1k',  min.cells = 3, min.features = 200)
+se3_5pe <- CreateSeuratObject(set3.5pe$`Gene Expression`, 'Data_Set_8_5pe_PBMC_10k',  min.cells = 3, min.features = 200)
+se4_5pe <- CreateSeuratObject(set4.5pe$`Gene Expression`, 'Data_Set_9_5pe_PBMC_1k',  min.cells = 3, min.features = 200)
+se5_5pe <- CreateSeuratObject(set5.5pe$`Gene Expression`, 'Data_Set_10_5pe_PBMC_10k',  min.cells = 3, min.features = 200)
 ```
 Compute some statistics for data sets.
 
