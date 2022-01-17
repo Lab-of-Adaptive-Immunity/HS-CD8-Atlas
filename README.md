@@ -15,12 +15,12 @@ A readme for constructing a Human Atlas of CD8+ cells.
 ## Legal Information                                     
 #########################################################
 
-LICENSE: GNU GPL v3 for scripts.
+LICENSE: MIT License for provided scripts.
 
 All scripts are distributed to ease the building of the Atlas,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+MIT License for more details.
 
 Used data sets belong to 10X Genomics and are distributed
 under Creative Commons license. See https://support.10xgenomics.com/ 
