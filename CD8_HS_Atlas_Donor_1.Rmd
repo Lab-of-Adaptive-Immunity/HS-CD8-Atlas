@@ -21,7 +21,7 @@ First we load all necessary packages here.
 ```{r libs, include=FALSE}
 knitr::opts_chunk$set(include = TRUE, warning = FALSE, message = FALSE, 
                       error = TRUE, cache = TRUE, cache.lazy = FALSE)
-library(Seurat, lib.loc = '/usr/lib64/R/library')
+library(Seurat)
 library(future)
 library(ggplot2)
 library(dplyr)
