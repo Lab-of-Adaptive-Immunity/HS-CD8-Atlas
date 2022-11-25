@@ -33,8 +33,6 @@ for detailed information.
 #########################################################
 ## Requirements                                          
 #########################################################
-
-  COMING SOON
   
 You need R 4.0.3 with following packages:
 * Seurat 4.0.0
@@ -42,7 +40,6 @@ You need R 4.0.3 with following packages:
 * ggplot
 * dplyr
 * tibble
-* ...
 
 You also need tape archiver (tar) for extracting 10X files.
 
@@ -52,11 +49,11 @@ You also need tape archiver (tar) for extracting 10X files.
 
 You need to follow these steps:
 
-1. ) Go to page xxxx on our GitHub and clone following directory:  
- COMING SOON!
+1. ) Go to page [here](https://github.com/Lab-of-Adaptive-Immunity/HS-CD8-Atlas/edit/master/README.md) on our GitHub (if you're reading the readme you should be already here) and clone following:  
+ git clone https://github.com/Lab-of-Adaptive-Immunity/HS-CD8-Atlas/
  
 2. ) Go to downloaded directory:  
-  cd xxxx
+  cd HS-CD8-Atlas
 
 3. ) Run bash script  Create_hierarchy_for_analysis.sh:  
     
