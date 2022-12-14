@@ -104,8 +104,6 @@ create.VDJ.metadata <- function(seurat.obj,
     filter(!duplicated(.[c('chain', 'barcode', 'cdr3')], fromLast = TRUE)) %>%
     filter(barcode %in% colnames(seurat.obj))
   
-  missing.no = c("ATTCTACCATATACGC-1", "CACATTTGTACGCACC-1", "CCATGTCGTTCAACCA-1", "TTGAACGCAAGCGAGT-1")
-  
   if(filter.vdj){
     barcode.counts <- input.vdj %>% filter(vdj_source == '10X') %>%
       group_by(chain, barcode) %>% summarise(counts = n())
