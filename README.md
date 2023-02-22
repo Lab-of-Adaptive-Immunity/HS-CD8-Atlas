@@ -7,9 +7,7 @@
 
   
   
-A readme for constructing a Human Atlas of CD8+ cells.
-The data-set in question is used, among others, in 
-manuscript written by Tsyklauri et al., 2022.
+A readme for constructing a Human Atlas of CD8+ cells and imports their V(D)J sequences to meta data.
 
 **References to papers this data set is used in:**
 
