@@ -29,7 +29,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 MIT License for more details.
 
 Used data sets belong to 10X Genomics and are distributed
-under Creative Commons license. See https://support.10xgenomics.com/ 
+under Creative Commons Attribution license. See https://support.10xgenomics.com/ 
 for detailed information.
 
 
@@ -39,7 +39,7 @@ for detailed information.
 #########################################################
   
 You need R 4.0.3 with following packages:
-* Seurat 4.0.0
+* Seurat 4.0.0 Creative Commons Attribution
 * rmarkdown
 * ggplot
 * dplyr
