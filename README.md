@@ -10,8 +10,12 @@
 A readme for constructing a Human Atlas of CD8+ cells.
 The data-set in question is used, among others, in 
 manuscript written by Tsyklauri et al., 2022.
+
+**References to papers this data set is used in:**
+
+Tsyklauri O, Chadimova T, Niederlova V, et al. Regulatory T cells suppress the formation of potent KLRK1 and IL-7R expressing effector CD8 T cells by limiting IL-2. Elife. 2023;12:e79342. doi:10.7554/eLife.79342
   
-  
+*Link*: https://elifesciences.org/articles/79342https://elifesciences.org/articles/79342
 
 #########################################################
 ## Legal Information                                     
