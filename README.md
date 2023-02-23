@@ -28,7 +28,7 @@ MIT License for more details.
 
 Used data sets belong to 10X Genomics and are distributed
 under Creative Commons Attribution license. See https://support.10xgenomics.com/ 
-for detailed information.
+for detailed information. The descripption of license can be seen at: https://creativecommons.org/licenses/by/4.0/.
 
 
 
